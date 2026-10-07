@@ -79,6 +79,10 @@ DEFAULT_FETCH_DOMAINS = (
     "www.visitcalifornia.com",
 )
 
+# Hosts that refuse the script's own fetch (bot protection; see SOURCES.md),
+# so their events need a second listing page as date evidence.
+BLOCKED_HOSTS = ("sfjazz.org", "jccnc.org")
+
 ITEM_KEYS_REQUIRED = ("title", "start", "venue", "city", "url", "why", "reminder", "source_urls")
 ITEM_KEYS_OPTIONAL = ("end", "price_note")
 DAY_TRIP_KEYS = ("town", "why", "things_to_do", "drive_time_from_sf", "source_urls")
@@ -162,6 +166,10 @@ Accuracy is the priority. Budget is not a constraint.
 - url must be the event's own page (or the listing page) that shows its date.
   The script fetches that url and drops the event when its date does not
   appear on the page, so never use a home page or a search result page.
+- Some sites block the script: @@BLOCKED@@. For an event from one of
+  them, add to source_urls a page on another listing site (for example
+  SF Station, Funcheap or Eventbrite) that shows the same date, or the
+  event is dropped.
 - A recurring program counts only for a specific upcoming date you confirmed.
 - Start with the seed pages below. Where an index page lacks dates, open each
   event's detail page. Luma and Meetup render dates with JavaScript, so
@@ -208,6 +216,7 @@ def build_prompt(today: dt.date, window_end: dt.date, profile: str, seen: list[d
         .replace("@@START@@", today.isoformat())
         .replace("@@END@@", window_end.isoformat())
         .replace("@@DOMAINS@@", ", ".join(fetch_domains))
+        .replace("@@BLOCKED@@", ", ".join(BLOCKED_HOSTS))
         .replace("@@SEEDS@@", "\n".join(seeds))
         .replace("@@PROFILE@@", profile.strip() or "(no profile)")
         .replace("@@SEEN@@", json.dumps(seen, ensure_ascii=False))

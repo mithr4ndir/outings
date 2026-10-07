@@ -489,6 +489,7 @@ def test_prompt_carries_window_seeds_and_history_as_data() -> None:
     assert "2026-10-07 through\n2026-10-21" in prompt.replace("@@", "") or "2026-10-21" in prompt
     assert "home: {braces}" in prompt and '"title": "Old"' in prompt
     assert all(seed in prompt for seed in research.SEED_URLS)
+    assert all(host in prompt for host in research.BLOCKED_HOSTS)
     assert "@@" not in prompt
 
 
