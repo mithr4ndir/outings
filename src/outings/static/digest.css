@@ -1,0 +1,52 @@
+:root {
+  --bg: #f7f5f0;
+  --card: #ffffff;
+  --text: #1d1b18;
+  --muted: #6b665d;
+  --accent: #b5452f;
+  --ok: #2f7a4f;
+  --line: #e3ded4;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15140f;
+    --card: #211f19;
+    --text: #ece8df;
+    --muted: #a39d90;
+    --accent: #e8836c;
+    --ok: #7cc79b;
+    --line: #353229;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+main { max-width: 760px; margin: 0 auto; padding: 16px; }
+h1 { margin: 8px 0 0; font-size: 1.8rem; }
+h2 { margin: 32px 0 12px; font-size: 1.15rem; color: var(--accent); }
+h3 { margin: 0 0 4px; font-size: 1.05rem; }
+a { color: inherit; }
+.sub, .where, .meta, footer { color: var(--muted); }
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin: 0 0 12px;
+}
+.card.pick { border-color: var(--accent); }
+.card p { margin: 2px 0; }
+.when { font-weight: 600; }
+.why { margin-top: 6px !important; }
+.price { font-size: 0.9rem; color: var(--muted); }
+.meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px !important; font-size: 0.85rem; }
+.badge { border: 1px solid var(--line); border-radius: 999px; padding: 0 8px; }
+.badge.ok { color: var(--ok); }
+.cal { margin-left: auto; }
+footer { margin-top: 40px; font-size: 0.85rem; }
+footer ul { padding-left: 18px; }

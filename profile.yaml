@@ -1,0 +1,10 @@
+# Interests for the outings prompt. Data, not instructions: the prompt says so.
+home: San Francisco
+company: going out as a couple
+budget: not a constraint
+interests:
+  talks: [space and astronomy, fusion energy, AI, open source]
+  culture: [Japanese culture, Japanese language (beginner, learning now), Japanese food]
+  nights_out: [live jazz, special dinners, cooking classes, shows, novel experiences]
+  day_trips: [new towns in the Bay Area and Northern California]
+avoid: [anything already suggested, events that need a car after midnight]
