@@ -18,6 +18,13 @@ Python around a pinned `claude` CLI, run on a subscription OAuth token.
    inside the window, safe https URL, plain text fields, and its local date
    must appear on its own page or a source page, fetched by the job. Anything
    that fails is dropped, never repaired.
+   Where the page publishes schema.org event data (JSON-LD, `jsonld.py`), the
+   start and end time, venue, city and price come from that data instead of
+   the model, and the page badges them ("Time checked", "Price checked"). An
+   event the page data marks cancelled, postponed, online only or sold out is
+   dropped, as is one whose own page shows a different date. The model's
+   venue or price text is kept only where it states what the page states
+   and adds detail (a gallery name, a drink minimum).
 4. The page is written to `site/<date>.html` (and `index.html`), then the top
    three picks are posted to Discord with a link to it, then history is saved.
 5. One summary log line: `event=digest_sent items=... dropped=...
