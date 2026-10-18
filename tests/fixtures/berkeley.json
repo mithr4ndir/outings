@@ -1,0 +1,74 @@
+{
+ "data": [
+  {
+   "title": "Space Physics Seminars: Stefano Livi - Southwest Research Institute &amp; University of Michigan",
+   "url": "https://events.berkeley.edu/ssl/event/330141-space-physics-seminars-stefano-livi-southwest",
+   "date_iso": "2026-10-20T13:00:00-07:00",
+   "date2_iso": "2026-10-20T14:15:00-07:00",
+   "is_all_day": null,
+   "is_online": null,
+   "is_canceled": null,
+   "location": "325 Physics South Hall, UC Berkeley, CA"
+  },
+  {
+   "title": "Joint Seminar 237 - Macroeconomics/Monetary Economics and Seminar PHDBA 239S Finance: “The Optimal Use of AI in Financial Regulation”",
+   "url": "https://events.berkeley.edu/econ/event/323827-joint-seminar-237-macroeconomicsmonetary-economics-an",
+   "date_iso": "2026-10-20T16:00:00-07:00",
+   "date2_iso": "2026-10-20T17:30:00-07:00",
+   "is_all_day": null,
+   "is_online": null,
+   "is_canceled": null,
+   "location": "Evans 597"
+  },
+  {
+   "title": "G. N. Lewis Memorial Lecture",
+   "url": "https://events.berkeley.edu/chem/event/317655-g-n-lewis-memorial-lecture",
+   "date_iso": "2026-10-20T16:00:00-07:00",
+   "date2_iso": null,
+   "is_all_day": null,
+   "is_online": null,
+   "is_canceled": null,
+   "location": "120 Latimer Hall"
+  },
+  {
+   "title": "Seminar 211 - Economic History: Grant Goehring (UC Merced) “Contagious Cargo: Health Externalities from Livestock Trade during Early Globalization”",
+   "url": "https://events.berkeley.edu/econ/event/334619-seminar-211-economic-history-grant-goehring-uc",
+   "date_iso": "2026-10-19T14:00:00-07:00",
+   "date2_iso": "2026-10-19T15:30:00-07:00",
+   "is_all_day": null,
+   "is_online": null,
+   "is_canceled": null,
+   "location": "Evans Hall 597"
+  },
+  {
+   "title": "Open Rec Badminton",
+   "url": "https://events.berkeley.edu/recsports/event/333590-open-rec-badminton",
+   "date_iso": "2026-10-19T14:00:00-07:00",
+   "date2_iso": "2026-10-19T18:00:00-07:00",
+   "is_all_day": null,
+   "is_online": null,
+   "is_canceled": null,
+   "location": "RSF Fieldhouse Court C"
+  },
+  {
+   "title": "California Men’s Golf at Saint Mary’s",
+   "url": "https://events.berkeley.edu/sports/event/327310-california-mens-golf-at-saint-marys",
+   "date_iso": "2026-10-20T00:00:00-07:00",
+   "date2_iso": null,
+   "is_all_day": 1,
+   "is_online": null,
+   "is_canceled": null,
+   "location": "Seaside, CA, Bayonet GC"
+  },
+  {
+   "title": "Voices of AAPI Communities: October Briefing on 2026 Midterm Elections and Trump Favorability",
+   "url": "https://events.berkeley.edu/aarc/event/335080-voices-of-aapi-communities-october-briefing-on",
+   "date_iso": "2026-10-20T10:00:00-07:00",
+   "date2_iso": "2026-10-20T11:00:00-07:00",
+   "is_all_day": null,
+   "is_online": 1,
+   "is_canceled": null,
+   "location": "Zoom"
+  }
+ ]
+}

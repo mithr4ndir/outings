@@ -13,13 +13,14 @@ from __future__ import annotations
 import datetime as dt
 import html
 import re
-from collections.abc import Callable, Iterable
-from dataclasses import dataclass, field
+from collections.abc import Callable, Iterable, Mapping
+from dataclasses import dataclass, field, replace
 from typing import Any
 from zoneinfo import ZoneInfo
 
 from . import jsonld
 from . import research as r
+from .collect import Collected
 from .common import Fetcher, Page, Rejected, canonical_url, checked_text, clean_text, fetch_page, log, validate_url
 
 PACIFIC = ZoneInfo("America/Los_Angeles")
@@ -52,6 +53,9 @@ class Event:
     # Fields taken from the page's own event data instead of the model:
     # any of "time", "venue", "city", "price".
     checked: tuple[str, ...] = ()
+    # "collected:<source>" for an event the script collected and the model
+    # picked, "research" for one the model found itself.
+    origin: str = "research"
 
 
 @dataclass(frozen=True)
@@ -277,10 +281,34 @@ def validate_day_trip(raw: Any, fetcher: Fetcher) -> DayTrip:
     return DayTrip(town, why, tuple(todos), drive, sources)
 
 
+def validate_pick(raw: Any, collected: Mapping[str, Collected], window: tuple[dt.date, dt.date],
+                  seen_urls: set[str], fetcher: Fetcher, require_date_on_page: bool) -> Event:
+    """A collected event the model picked. The model supplies only the id,
+    the section, why and the reminder flag; everything else comes from the
+    collection, and the event meets every rule a researched one does."""
+    if not isinstance(raw, dict) or set(raw) != set(r.PICK_KEYS):
+        raise Rejected("pick does not have exactly the schema keys")
+    if raw["section"] not in r.SECTIONS:
+        raise Rejected("pick section is unknown")
+    if not isinstance(raw["id"], str) or raw["id"] not in collected:
+        raise Rejected("pick id is not a collected event")
+    if not isinstance(raw["reminder"], bool):
+        raise Rejected("reminder is not a boolean")
+    why = checked_text(raw["why"], "why", r.WHY_MAX_CHARS)
+    found = collected[raw["id"]]
+    event = validate_event(raw["section"], found.raw_item(why, raw["reminder"]), window, seen_urls, fetcher,
+                           require_date_on_page)
+    if found.start is None and "time" not in event.checked:
+        raise Rejected("no start time on the event page")
+    return replace(event, origin=f"collected:{found.source}")
+
+
 def build_digest(raw: Any, window: tuple[dt.date, dt.date], seen_urls: set[str],
-                 fetcher: Fetcher | None = None, require_date_on_page: bool = True) -> Digest:
+                 fetcher: Fetcher | None = None, require_date_on_page: bool = True,
+                 collected: Mapping[str, Collected] | None = None, research: bool = True) -> Digest:
     """The validated digest. Raw output that is not an object is an error;
-    a bad item only costs that item."""
+    a bad item only costs that item. Picks from the collection fill each
+    section before researched items do."""
     if not isinstance(raw, dict):
         raise Rejected("digest is not an object")
     fetcher = fetcher or cached(fetch_page)
@@ -292,45 +320,68 @@ def build_digest(raw: Any, window: tuple[dt.date, dt.date], seen_urls: set[str],
         digest.drop_reasons[reason] = digest.drop_reasons.get(reason, 0) + 1
         log.info("item %r dropped: %s", label, reason)
 
+    def add(event: Event) -> None:
+        key = (canonical_url(event.url), event.start.date())
+        if key in batch:
+            raise Rejected("duplicate within this run")
+        if len(digest.sections[event.section]) >= SECTION_MAX:
+            raise Rejected("section is full")
+        batch.add(key)
+        digest.sections[event.section].append(event)
+
+    collected = collected or {}
+    picks = raw.get("picks")
+    for pick in picks[: r.PICKS_MAX] if isinstance(picks, list) else []:
+        label = pick.get("id") if isinstance(pick, dict) and isinstance(pick.get("id"), str) else "?"
+        try:
+            add(validate_pick(pick, collected, window, seen_urls, fetcher, require_date_on_page))
+        except Rejected as exc:
+            drop(clean_text(label, 20), str(exc))
+
     for section in r.SECTIONS:
         items = raw.get(section)
         if not isinstance(items, list):
             log.warning("section %s is missing", section)
             continue
+        researched = 0
         for item in items[: r.SECTION_SCHEMA_MAX]:
             title = item.get("title") if isinstance(item, dict) else None
             label = clean_text(title, 60) if isinstance(title, str) else "?"
             try:
-                event = validate_event(section, item, window, seen_urls, fetcher, require_date_on_page)
-                key = (canonical_url(event.url), event.start.date())
-                if key in batch:
-                    raise Rejected("duplicate within this run")
-                if len(digest.sections[section]) >= SECTION_MAX:
-                    raise Rejected("section is full")
+                if not research:
+                    raise Rejected("research is off")
+                if researched >= r.RESEARCHED_PER_SECTION:
+                    raise Rejected("too many researched items in the section")
+                add(validate_event(section, item, window, seen_urls, fetcher, require_date_on_page))
             except Rejected as exc:
                 drop(label, str(exc))
                 continue
-            batch.add(key)
-            digest.sections[section].append(event)
-        digest.sections[section].sort(key=lambda e: e.start)
+            researched += 1
+    for events in digest.sections.values():
+        events.sort(key=lambda e: e.start)
 
     try:
         digest.day_trip = validate_day_trip(raw.get("day_trip"), fetcher)
     except Rejected as exc:
         drop("day trip", str(exc))
 
-    digest.top_picks = choose_top_picks(raw.get("top_picks"), digest)
+    digest.top_picks = choose_top_picks(raw.get("top_picks"), digest, collected)
     return digest
 
 
-def choose_top_picks(raw: Any, digest: Digest) -> list[Event]:
-    """The model's picks that survived, topped up from the sections in order.
-    Reminders only fill in when nothing new is left."""
+def choose_top_picks(raw: Any, digest: Digest, collected: Mapping[str, Collected] | None = None) -> list[Event]:
+    """The model's top picks that survived, given as collected ids or urls,
+    topped up from the sections in order. Reminders only fill in when
+    nothing new is left."""
     events = digest.events()
     by_url = {canonical_url(e.url): e for e in events}
+    collected = collected or {}
     picks: list[Event] = []
     for value in raw if isinstance(raw, list) else []:
-        if isinstance(value, str) and (event := by_url.get(canonical_url(value))) and event not in picks:
+        if not isinstance(value, str):
+            continue
+        url = collected[value].url if value in collected else value
+        if (event := by_url.get(canonical_url(url))) and event not in picks:
             picks.append(event)
     for reminders in (False, True):
         queues = [[e for e in digest.sections[name] if e.reminder == reminders and e not in picks] for name in r.SECTIONS]

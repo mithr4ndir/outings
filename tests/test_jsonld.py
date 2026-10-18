@@ -302,3 +302,14 @@ def test_model_end_survives_when_the_page_gives_only_a_start() -> None:
     early = raw_item(start="2026-10-23T17:00:00-07:00", end="2026-10-23T18:00:00-07:00")
     event = checks.validate_event("date_night", early, WINDOW, set(), fetcher_of(page), True)
     assert event.end is None
+
+
+def test_eventbrite_series_occurrence_takes_facts_from_the_series_event() -> None:
+    # Captured 2026-10-18: the occurrence url ends ...1998452203337, the page's
+    # single Event names the series ...1992957307957.
+    url = "https://www.eventbrite.com/e/japantown-now-walking-tours-tickets-1998452203337"
+    page = fixture("eventbrite_series_occurrence.html", url)
+    found = jsonld.match(page, url, dt.date(2026, 10, 23))
+    assert found is not None and found.start == dt.datetime(2026, 10, 23, 11, 30, tzinfo=PT)
+    # A sibling Event on another day is no evidence either way: never a drop.
+    assert jsonld.match(page, url, dt.date(2026, 10, 30)) is None
