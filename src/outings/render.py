@@ -119,9 +119,11 @@ def render_page(digest: Digest, run_date: dt.date, archive: list[str]) -> str:
         f"<header><h1>Weekly outings</h1><p class=\"sub\">{esc(window)} · San Francisco and the Bay Area</p></header>"
         f'<section><h2>Top picks</h2><div class="picks">{picks}</div></section>'
         f"{sections}{day_trip_html(digest.day_trip)}"
-        '<footer><p>Found by a model with web search. Every event date was matched against the event\'s own page '
-        "when this digest was built, and where the page publishes its event data the time, venue and price "
-        "come from that data. Check the page before you go.</p>"
+        '<footer><p>Most events are collected by a script from venue calendars, listing sites and university '
+        "feeds; a model picks among them, writes why each fits and researches what the collection lacks. "
+        "Every event date was matched against the event\'s own page when this digest was built, and where the "
+        "page publishes its event data the time, venue and price come from that data. "
+        "Check the page before you go.</p>"
         f"{'<h2>Earlier digests</h2><ul>' + past + '</ul>' if past else ''}</footer>"
         "</main></body></html>\n"
     )
@@ -133,7 +135,7 @@ def digest_json(digest: Digest, run_date: dt.date) -> str:
             "title": e.title, "start": e.start.isoformat(), "end": e.end.isoformat() if e.end else None,
             "venue": e.venue, "city": e.city, "url": e.url, "why": e.why, "price_note": e.price_note,
             "reminder": e.reminder, "source_urls": list(e.source_urls), "evidence": e.evidence,
-            "evidence_url": e.evidence_url, "checked": list(e.checked),
+            "evidence_url": e.evidence_url, "checked": list(e.checked), "origin": e.origin,
         }
 
     trip = digest.day_trip

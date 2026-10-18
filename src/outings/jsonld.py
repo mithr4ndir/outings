@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from .common import Page, Rejected, canonical_url, checked_text
+from .common import Page, Rejected, canonical_url, checked_text, validate_url
 
 PACIFIC = ZoneInfo("America/Los_Angeles")
 LD_BLOCK_RE = re.compile(r"<script[^>]*application/ld\+json[^>]*>(.*?)</script>", re.S | re.I)
@@ -42,7 +42,8 @@ class PageEvent:
     """One Event object as the page states it. Times are aware, Pacific."""
 
     name: str
-    url: str  # canonical, or "" when the object has none
+    url: str  # canonical (a dedup key), or "" when the object has none
+    link: str  # the url as published, when it passed validate_url, else ""
     start_date: dt.date | None
     # The local date of endDate, however far away. A series page often gives
     # its first session as startDate and its last as endDate.
@@ -51,6 +52,8 @@ class PageEvent:
     end: dt.datetime | None  # None when absent or longer than a week
     venue: str  # the place name and street, as far as the page states them
     city: str
+    region: str  # addressRegion as stated ("CA", "California", "NY"), or ""
+    geo: tuple[float, float] | None  # (latitude, longitude)
     price_note: str
     status: str  # the schema.org status name, e.g. "EventScheduled", or ""
     online_only: bool
@@ -141,11 +144,40 @@ def _street(address: dict[str, Any], city: str) -> str:
     return street.strip(" ,")
 
 
-def _place(location: Any) -> tuple[str, str, bool]:
-    """(venue, city, online_only) from a location value. The venue joins the
-    place name and its street, without repeating one inside the other."""
+@dataclass(frozen=True)
+class _Place:
+    venue: str
+    city: str
+    online_only: bool
+    region: str
+    geo: tuple[float, float] | None
+
+
+def _geo(value: Any) -> tuple[float, float] | None:
+    if not isinstance(value, dict):
+        return None
+    lat, lon = _signed(value.get("latitude")), _signed(value.get("longitude"))
+    if lat is None or lon is None or not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        return None
+    return lat, lon
+
+
+def _signed(value: Any) -> float | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str) and re.fullmatch(r"\s*-?\d{1,3}(?:\.\d{1,12})?\s*", value):
+        return float(value)
+    return None
+
+
+def _place(location: Any) -> _Place:
+    """The venue joins the place name and its street, without repeating one
+    inside the other."""
     places = location if isinstance(location, list) else [location]
-    venue = city = ""
+    venue = city = region = ""
+    geo = None
     physical = virtual = False
     for place in places[:4]:
         if not isinstance(place, dict):
@@ -159,8 +191,10 @@ def _place(location: Any) -> tuple[str, str, bool]:
             continue
         address = place.get("address")
         street = ""
+        geo = _geo(place.get("geo"))
         if isinstance(address, dict):
             city = city or _text(address.get("addressLocality"), "page city", 60)
+            region = _text(address.get("addressRegion"), "page region", 40)
             street = _street(address, city)
         name = _text(place.get("name"), "page venue", 120)
         # Some sites (Luma) hide the address and name the place after the
@@ -174,7 +208,7 @@ def _place(location: Any) -> tuple[str, str, bool]:
             venue = f"{name}, {street}"
         else:
             venue = name or street
-    return venue[:120], city, virtual and not physical
+    return _Place(venue[:120], city, virtual and not physical, region, geo)
 
 
 def _number(value: Any) -> float | None:
@@ -221,22 +255,29 @@ def parse_event(obj: dict[str, Any]) -> PageEvent:
     last_date, end = _moment(obj.get("endDate"))
     if start is None or end is None or end < start or end - start > dt.timedelta(days=7):
         end = None
-    venue, city, online_only = _place(obj.get("location"))
+    place = _place(obj.get("location"))
     attendance = _schema_name(obj.get("eventAttendanceMode"))
     price_note, sold_out = _offers(obj.get("offers"))
     url = obj.get("url")
+    try:
+        link = validate_url(url)
+    except Rejected:
+        link = ""
     return PageEvent(
         name=_text(obj.get("name"), "page title", 200),
         url=canonical_url(url) if isinstance(url, str) and url.startswith("https://") else "",
+        link=link,
         start_date=start_date,
         last_date=last_date if last_date is not None and start_date is not None and last_date >= start_date else None,
         start=start,
         end=end,
-        venue=venue,
-        city=city,
+        venue=place.venue,
+        city=place.city,
+        region=place.region,
+        geo=place.geo,
         price_note=price_note,
         status=_schema_name(obj.get("eventStatus")),
-        online_only=online_only or attendance == "OnlineEventAttendanceMode",
+        online_only=place.online_only or attendance == "OnlineEventAttendanceMode",
         sold_out=sold_out,
     )
 
@@ -266,8 +307,15 @@ def match(page: Page, event_url: str, day: dt.date) -> PageEvent | None:
     events = page_events(page)
     own_page = canonical_url(page.url) == wanted
     mine = [e for e in events if e.url == wanted]
-    if not mine and own_page and len(events) == 1 and events[0].url in ("", wanted):
-        mine = events
+    if not mine and own_page and len(events) == 1:
+        only = events[0]
+        if only.url in ("", wanted):
+            mine = events
+        elif only.start_date == day:
+            # An Eventbrite series occurrence: the page's single Event names
+            # the series' url, not this occurrence's. Its date agreeing is
+            # what ties it to this event, so it can never contradict one.
+            return _usable(only)
     if not mine:
         return None
     on_day = [e for e in mine if e.start_date == day]
@@ -279,7 +327,11 @@ def match(page: Page, event_url: str, day: dt.date) -> PageEvent | None:
         if only is not None and only.start_date is not None and not only.start_date <= day <= (only.last_date or only.start_date):
             raise Rejected("page data shows a different date")
         return None
-    found = on_day[0]
+    return _usable(on_day[0])
+
+
+def _usable(found: PageEvent) -> PageEvent:
+    """The matched Event, or Rejected when it says the outing is off."""
     if found.status in DEAD_STATUSES:
         raise Rejected(f"page data says {found.status[len('Event'):].lower()}")
     if found.online_only:

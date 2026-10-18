@@ -1,0 +1,126 @@
+{
+ "events": [
+  {
+   "event": {
+    "title": "Alcoholics Anonymous Sunday Meeting",
+    "localist_url": "https://events.stanford.edu/event/alcoholics-anonymous-meeting",
+    "location_name": "Rogers House",
+    "experience": "inperson",
+    "status": "live",
+    "free": false,
+    "event_instances": [
+     {
+      "event_instance": {
+       "start": "2026-10-18T09:00:00-07:00",
+       "end": "2026-10-18T10:00:00-07:00",
+       "all_day": false
+      }
+     }
+    ]
+   }
+  },
+  {
+   "event": {
+    "title": "A Vision of Paris: The Roxane Debuisson Collection at Stanford",
+    "localist_url": "https://events.stanford.edu/event/a-vision-of-paris-the-roxane-debuisson-collection-at-stanford",
+    "location_name": "Green Library, Bing Wing",
+    "experience": "inperson",
+    "status": "live",
+    "free": false,
+    "event_instances": [
+     {
+      "event_instance": {
+       "start": "2026-10-18T10:00:00-07:00",
+       "end": "2026-10-18T18:00:00-07:00",
+       "all_day": false
+      }
+     }
+    ]
+   }
+  },
+  {
+   "event": {
+    "title": "In Focus: Asian American Art from the Collection",
+    "localist_url": "https://events.stanford.edu/event/in-focus-asian-american-art-from-the-collection",
+    "location_name": "Cantor Arts Center",
+    "experience": "inperson",
+    "status": "live",
+    "free": false,
+    "event_instances": [
+     {
+      "event_instance": {
+       "start": "2026-10-18T10:00:00-07:00",
+       "end": "2026-10-18T17:00:00-07:00",
+       "all_day": false
+      }
+     }
+    ]
+   }
+  },
+  {
+   "event": {
+    "title": "Al-Anon Sunday Meeting",
+    "localist_url": "https://events.stanford.edu/event/al-anon-sunday-meeting",
+    "location_name": "Rogers House",
+    "experience": "inperson",
+    "status": "live",
+    "free": false,
+    "event_instances": [
+     {
+      "event_instance": {
+       "start": "2026-10-18T11:00:00-07:00",
+       "end": "2026-10-18T12:00:00-07:00",
+       "all_day": false
+      }
+     }
+    ]
+   }
+  },
+  {
+   "event": {
+    "title": "Autumn Quarter: MD/MSPA – Last day of clerkships for Period 4.",
+    "localist_url": "https://events.stanford.edu/event/mdmspa-last-day-of-clerkships-for-period-4",
+    "location_name": "",
+    "experience": "inperson",
+    "status": "live",
+    "free": false,
+    "event_instances": [
+     {
+      "event_instance": {
+       "start": "2026-10-18T00:00:00-07:00",
+       "end": null,
+       "all_day": true
+      }
+     }
+    ]
+   }
+  },
+  {
+   "event": {
+    "title": "CBD 2026: iPause Guided Practice - The Clearing Practice: Quaker-inspired contemplative stillness and silence for service, Summer Camp Style with Adair Arbor and Sam Green",
+    "localist_url": "https://events.stanford.edu/event/cbd-2026-silent-meeting-summer-camp-style-with-adair-arbor-and-sam-green",
+    "location_name": "",
+    "experience": "virtual",
+    "status": "live",
+    "free": false,
+    "event_instances": [
+     {
+      "event_instance": {
+       "start": "2026-10-18T08:00:00-07:00",
+       "end": "2026-10-18T08:45:00-07:00",
+       "all_day": false
+      }
+     }
+    ]
+   }
+  }
+ ],
+ "page": {
+  "current": 1,
+  "size": 100,
+  "total": 6,
+  "total_items": 503,
+  "next_page": 2,
+  "previous_page": null
+ }
+}
