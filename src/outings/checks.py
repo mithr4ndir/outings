@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from . import jsonld
 from . import research as r
 from .common import Fetcher, Page, Rejected, canonical_url, checked_text, clean_text, fetch_page, log, validate_url
 
@@ -48,6 +49,9 @@ class Event:
     source_urls: tuple[str, ...]
     evidence: str  # "structured" (ISO date on the page) or "text" (written date)
     evidence_url: str
+    # Fields taken from the page's own event data instead of the model:
+    # any of "time", "venue", "city", "price".
+    checked: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -127,6 +131,52 @@ def date_evidence(day: dt.date, urls: Iterable[str], fetcher: Fetcher) -> tuple[
     return None
 
 
+NUMBER_RE = re.compile(r"\d[\d,]*(?:\.\d+)?")
+
+
+def squash(value: str) -> str:
+    return "".join(ch for ch in value.lower() if ch.isalnum())
+
+
+def amounts(text: str) -> set[str]:
+    """Dollar figures as plain numbers: "$1,250.00" and "1250" are both "1250"."""
+    found = set()
+    for raw in NUMBER_RE.findall(text):
+        number = raw.replace(",", "")
+        found.add(number[:-3] if number.endswith(".00") else number)
+    return found
+
+
+def keep_model_venue(model: str, page: str) -> bool:
+    """The model's venue says what the page says and more (a gallery name
+    where the page only gives the street), so it is the better text."""
+    return bool(squash(page)) and squash(page) in squash(model)
+
+
+def keep_model_price(model: str, page: str) -> bool:
+    """The model's note states the page's figures and adds detail (a drink
+    minimum, what the price includes)."""
+    if not model:
+        return False
+    if page == "Free":
+        return "free" in model.lower()
+    wanted = amounts(page)
+    return bool(wanted) and wanted <= amounts(model)
+
+
+def page_facts(url: str, urls: Iterable[str], day: dt.date, fetcher: Fetcher) -> jsonld.PageEvent | None:
+    """The event's data from the first page that carries it, or None. Raises
+    Rejected when that data contradicts the model (see jsonld.match)."""
+    for candidate in list(urls)[:PAGES_PER_ITEM]:
+        page = fetcher(candidate)
+        if page is None or not 200 <= page.status < 300 or not page.text:
+            continue
+        found = jsonld.match(page, url, day)
+        if found is not None:
+            return found
+    return None
+
+
 def clean_urls(raw: Any) -> tuple[str, ...]:
     if not isinstance(raw, list):
         return ()
@@ -166,16 +216,41 @@ def validate_event(section: str, raw: Any, window: tuple[dt.date, dt.date], seen
         if end < start or end - start > dt.timedelta(days=MAX_EVENT_DAYS):
             raise Rejected("end is before start or too far after it")
     sources = tuple(u for u in clean_urls(raw["source_urls"]) if u != url)
+    checked: list[str] = []
     if require_date_on_page:
         found = date_evidence(start.date(), (url, *sources), fetcher)
         if found is None:
             raise Rejected("date not found on the event page or its sources")
         evidence, evidence_url = found
+        # The page's own data wins over the model for every field it states.
+        facts = page_facts(url, (url, *sources), start.date(), fetcher)
+        if facts is not None:
+            if facts.start is not None:
+                # The model's end survives only where the page gives none
+                # and it still fits after the page's start.
+                if facts.end is not None:
+                    end = facts.end
+                elif end is not None and not facts.start <= end <= facts.start + dt.timedelta(days=MAX_EVENT_DAYS):
+                    end = None
+                start = facts.start
+                checked.append("time")
+            if facts.venue:
+                if not keep_model_venue(venue, facts.venue):
+                    venue = facts.venue
+                checked.append("venue")
+            if facts.city:
+                city = facts.city
+                checked.append("city")
+            if facts.price_note:
+                if not keep_model_price(price, facts.price_note):
+                    price = facts.price_note
+                checked.append("price")
     else:
         evidence, evidence_url = "unchecked", ""
     # A repeat is allowed, but it is always labelled as one.
     reminder = raw["reminder"] or canonical_url(url) in seen_urls
-    return Event(section, title, start, end, venue, city, url, why, price, reminder, sources, evidence, evidence_url)
+    return Event(section, title, start, end, venue, city, url, why, price, reminder, sources, evidence, evidence_url,
+                 tuple(checked))
 
 
 def validate_day_trip(raw: Any, fetcher: Fetcher) -> DayTrip:

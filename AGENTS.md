@@ -33,6 +33,12 @@ uv run pytest -q -rs
 - The model is never the only source for a date. Do not loosen `checks.date_evidence`
   or default `OUTINGS_REQUIRE_DATE_ON_PAGE` to off to get more items; measure the drop
   reasons in the summary line instead.
+- Page facts (`jsonld.py`) override model fields only for an Event matched by url, or
+  the single Event on the event's own page. A listing page with many Events is not
+  evidence for any one of them. Eventbrite series give the first session as startDate
+  and the last as endDate, so a day inside that span is not a different date (a replay
+  of the 2026-10-18 digest caught that false drop). Replay a real digest with
+  `--from-json` after changing match rules.
 - `claude -p` needs `--allowedTools` for WebSearch and WebFetch, or every call is
   silently denied and the model answers from memory.
 - Exploratorium 403s curl's default User-Agent; SFJAZZ and JCCCNC block all

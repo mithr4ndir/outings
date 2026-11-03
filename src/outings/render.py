@@ -71,6 +71,10 @@ def card(event: Event, pick: bool = False) -> str:
         badges.append('<span class="badge ok" title="The event page carries this date in its data">Date checked</span>')
     elif event.evidence == "text":
         badges.append('<span class="badge ok" title="This date appears on the event page">Date on page</span>')
+    if "time" in event.checked:
+        badges.append('<span class="badge ok" title="Start time from the event page\'s own data">Time checked</span>')
+    if "price" in event.checked:
+        badges.append('<span class="badge ok" title="Price from the event page\'s own data">Price checked</span>')
     price = f'<p class="price">{esc(event.price_note)}</p>' if event.price_note else ""
     return (
         f'<article class="card{" pick" if pick else ""}">'
@@ -116,7 +120,8 @@ def render_page(digest: Digest, run_date: dt.date, archive: list[str]) -> str:
         f'<section><h2>Top picks</h2><div class="picks">{picks}</div></section>'
         f"{sections}{day_trip_html(digest.day_trip)}"
         '<footer><p>Found by a model with web search. Every event date was matched against the event\'s own page '
-        "when this digest was built; check the page before you go.</p>"
+        "when this digest was built, and where the page publishes its event data the time, venue and price "
+        "come from that data. Check the page before you go.</p>"
         f"{'<h2>Earlier digests</h2><ul>' + past + '</ul>' if past else ''}</footer>"
         "</main></body></html>\n"
     )
@@ -128,7 +133,7 @@ def digest_json(digest: Digest, run_date: dt.date) -> str:
             "title": e.title, "start": e.start.isoformat(), "end": e.end.isoformat() if e.end else None,
             "venue": e.venue, "city": e.city, "url": e.url, "why": e.why, "price_note": e.price_note,
             "reminder": e.reminder, "source_urls": list(e.source_urls), "evidence": e.evidence,
-            "evidence_url": e.evidence_url,
+            "evidence_url": e.evidence_url, "checked": list(e.checked),
         }
 
     trip = digest.day_trip

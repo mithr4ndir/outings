@@ -1,6 +1,6 @@
 [project]
 name = "outings"
-version = "0.1.0"
+version = "0.1.1"
 description = "A weekly Discord digest of SF and Bay Area outings, run as a Kubernetes CronJob."
 readme = "README.md"
 requires-python = ">=3.12"
