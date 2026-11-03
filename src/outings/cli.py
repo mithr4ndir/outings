@@ -3,17 +3,21 @@
 Usage:
     python -m outings weekly [--dry-run] [--out DIR] [--from-json FILE]
 
-weekly       Ask claude (web search, allowlisted WebFetch) for events in the
-             next OUTINGS_WINDOW_DAYS days, check every event's date against
-             its own page, write the digest page under DATA/site, post the
-             top three picks to Discord, then record them in DATA/state.
+weekly       Collect events in the next OUTINGS_WINDOW_DAYS days from venue
+             calendars, listing sites and university feeds (collect.py), ask
+             claude to pick among them and, with research on, to add what
+             the collection lacks (web search, allowlisted WebFetch). Check
+             every event's date against its own page, write the digest page
+             under DATA/site, post the top three picks to Discord, then
+             record them in DATA/state.
              Run by a Kubernetes CronJob; exit code 0 means posted.
 --dry-run    No webhook read, no post, nothing written under the data
              directory. Prints the checked digest as JSON.
---out DIR    With --dry-run: also write the page and the raw model output
-             to DIR, to look at.
+--out DIR    With --dry-run: also write the page, the raw model output
+             and the collected events to DIR, to look at.
 --from-json  Skip the model and check a saved raw output instead (the
-             raw.json that --out writes). Implies --dry-run.
+             raw.json that --out writes). Implies --dry-run. Collection
+             still runs: event ids are stable, so picks map again.
 
 Configuration (environment, all optional unless noted):
     OUTINGS_WEBHOOK_URL         Discord webhook (required to post)
@@ -27,6 +31,9 @@ Configuration (environment, all optional unless noted):
     OUTINGS_WINDOW_DAYS         days after today in the window (14)
     OUTINGS_MIN_EVENTS          fewer checked events fails the run (3)
     OUTINGS_REQUIRE_DATE_ON_PAGE  0 turns the date-on-page check off (1)
+    OUTINGS_COLLECT             0 skips the scripted collection (1)
+    OUTINGS_RESEARCH            0 gives the model no tools: it only picks
+                                from the collection (1)
     OUTINGS_DEBUG               any value enables debug logging
 """
 
@@ -46,7 +53,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from . import research
+from . import collect, research
 from .checks import PACIFIC, Digest, build_digest, cached
 from .common import Fetcher, OutingsError, Rejected, fetch_page, log, setup_logging, utcnow, write_text_atomic
 from .notify import build_payload, post_payload, resolve_webhook
@@ -69,6 +76,8 @@ class Config:
     window_days: int
     min_events: int
     require_date_on_page: bool
+    collect: bool = True
+    research: bool = True
 
     @classmethod
     def from_env(cls) -> Config:
@@ -107,6 +116,8 @@ class Config:
             window_days=int_env("OUTINGS_WINDOW_DAYS", 14, 1, 28),
             min_events=int_env("OUTINGS_MIN_EVENTS", 3, 1, 18),
             require_date_on_page=env.get("OUTINGS_REQUIRE_DATE_ON_PAGE", "1").strip() != "0",
+            collect=env.get("OUTINGS_COLLECT", "1").strip() != "0",
+            research=env.get("OUTINGS_RESEARCH", "1").strip() != "0",
         )
 
 
@@ -176,21 +187,32 @@ def run(cfg: Config, args: argparse.Namespace, deps: Deps, summary: Summary) -> 
         if webhook is None:
             raise OutingsError("no webhook; not calling claude")
 
+    # One fetcher for the whole run: a picked event's page was often fetched
+    # already by its listing, and checks fetch it again.
+    fetcher = deps.fetcher or cached(fetch_page)
+    counts: dict[str, int] = {}
+    collected = collect.collect(window, fetcher, counts=counts) if cfg.collect else []
+    summary.fields["collected"] = len(collected)
+    summary.fields["collected_by_source"] = counts
+    if not collected and not cfg.research:
+        raise OutingsError("nothing was collected and research is off; not calling claude")
+
     usage: dict[str, Any] = {}
     if args.from_json:
         raw = read_raw(args.from_json)
     else:
         profile = research.read_profile(cfg.profile)
-        prompt = research.build_prompt(today, window[1], profile, history.recent(today))
+        prompt = research.build_prompt(today, window[1], profile, history.recent(today),
+                                       [c.prompt_line() for c in collected], cfg.research)
         # The model call never runs in the data directory: it is shared storage.
         with tempfile.TemporaryDirectory(prefix="outings-claude-") as scratch:
             raw = research.call_claude(cfg.claude_bin, cfg.claude_model, cfg.claude_timeout, prompt,
-                                       Path(scratch), usage=usage)
+                                       Path(scratch), usage=usage, research=cfg.research)
     summary.fields.update(usage)
 
     try:
-        digest = build_digest(raw, window, history.url_keys(), deps.fetcher or cached(fetch_page),
-                              cfg.require_date_on_page)
+        digest = build_digest(raw, window, history.url_keys(), fetcher, cfg.require_date_on_page,
+                              {c.id: c for c in collected}, cfg.research)
     except Rejected as exc:
         raise OutingsError(f"model output rejected: {exc}") from None
     record_counts(summary, digest)
@@ -204,6 +226,7 @@ def run(cfg: Config, args: argparse.Namespace, deps: Deps, summary: Summary) -> 
             out = Path(args.out)
             write_site(out, digest, today)
             write_text_atomic(out / "raw.json", json.dumps(raw, indent=1, ensure_ascii=False) + "\n")
+            write_text_atomic(out / "collected.txt", "".join(c.prompt_line() + "\n" for c in collected))
             log.info("dry run: page written to %s", out / "index.html")
         summary.fields["duration_s"] = round(time.monotonic() - started, 1)
         log.info("%s", summary.line("digest_dry_run"))
@@ -226,6 +249,8 @@ def run(cfg: Config, args: argparse.Namespace, deps: Deps, summary: Summary) -> 
 
 def record_counts(summary: Summary, digest: Digest) -> None:
     summary.fields["items"] = len(digest.events())
+    summary.fields["picked"] = sum(1 for e in digest.events() if e.origin.startswith("collected:"))
+    summary.fields["researched"] = sum(1 for e in digest.events() if e.origin == "research")
     summary.fields["sections"] = {name: len(events) for name, events in digest.sections.items()}
     summary.fields["day_trip"] = int(digest.day_trip is not None)
     summary.fields["dropped"] = digest.dropped

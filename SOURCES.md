@@ -25,3 +25,19 @@ dates, that is a sanity check, not proof that this event is on that date. The
 prompt therefore asks for the event's own page, and the page labels the
 evidence ("Date checked" for an ISO date in the page data, "Date on page" for
 a written date).
+
+# Collected sources (collect.py)
+
+Measured 2026-10-18 from command-center1 with the job's User-Agent. A live
+collection took about a minute and gave 133 events in a 15-day window.
+
+| Source | Kind | What it gives | Notes |
+|---|---|---|---|
+| chabotspace.org/events/ | JSON-LD | start and end with offset, no location | Each event appears in two ld+json blocks. |
+| exploratorium.edu After Dark | HTML cards | `<time datetime>` start and end | One card per theme, next Thursday shown. |
+| calacademy.org/nightlife | HTML rows | "October 22 at 6:00 pm", no year | Year inferred: nearest date after yesterday. |
+| luma.com/sf, /sf/tech, /ai-sf | JSON-LD | start, end, offers | Venue often hidden ("San Francisco, CA"); kept as "Venue on the event page". |
+| meetup.com find, keywords japanese / astronomy | JSON-LD | start in UTC, venue, online flag | Keyword search is loose; the model filters. |
+| eventbrite.com SF categories (japanese, science-and-tech, astronomy, jazz, cooking-class) | JSON-LD | date only, venue, region | Times come from each event page. Geo is unreliable, region is not. |
+| events.stanford.edu API | JSON (Localist) | start and end with offset, venue, free flag | About 500 events in 15 days; titles must match a listed interest. |
+| events.berkeley.edu feed | JSON (LiveWhale) | start and end with offset, location | About 1000 events in 15 days over 11 pages; explicit date range required. |

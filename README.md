@@ -12,9 +12,19 @@ Python around a pinned `claude` CLI, run on a subscription OAuth token.
 ## How a run works
 
 1. Load `state/history.json` (what was already suggested).
-2. `claude -p` with web search and a WebFetch allowlist researches the window
-   and returns JSON matching `research.DIGEST_SCHEMA`.
-3. Every event is checked in code (`checks.py`): ISO start with a UTC offset,
+2. Collect events in the window by script (`collect.py`): JSON-LD listings
+   (Chabot, Luma, Meetup and Eventbrite searches), the Stanford and Berkeley
+   event feeds (kept only when the title matches a listed interest), and
+   small parsers for Exploratorium After Dark and Cal Academy NightLife.
+   Online, cancelled, sold-out and out-of-area events are dropped here. Each
+   event gets a stable id. See `SOURCES.md`.
+3. `claude -p` gets the collected events as data and returns JSON matching
+   `research.DIGEST_SCHEMA`: `picks` (a collected id, a section, why, a
+   reminder flag; never a title, date or link), plus, with research on,
+   up to three researched events per section for what the collection lacks
+   (web search and a WebFetch allowlist). With `OUTINGS_RESEARCH=0` the model
+   gets no tools at all and only picks.
+4. Every event, picked or researched, is checked in code (`checks.py`): ISO start with a UTC offset,
    inside the window, safe https URL, plain text fields, and its local date
    must appear on its own page or a source page, fetched by the job. Anything
    that fails is dropped, never repaired.
@@ -25,10 +35,11 @@ Python around a pinned `claude` CLI, run on a subscription OAuth token.
    dropped, as is one whose own page shows a different date. The model's
    venue or price text is kept only where it states what the page states
    and adds detail (a gallery name, a drink minimum).
-4. The page is written to `site/<date>.html` (and `index.html`), then the top
+5. The page is written to `site/<date>.html` (and `index.html`), then the top
    three picks are posted to Discord with a link to it, then history is saved.
-5. One summary log line: `event=digest_sent items=... dropped=...
-   drop_reasons=... turns=... cost_usd=... duration_s=...`.
+6. One summary log line: `event=digest_sent collected=... collected_by_source=...
+   items=... picked=... researched=... dropped=... drop_reasons=... turns=...
+   cost_usd=... duration_s=...`.
 
 Exit code 0 means posted. Fewer than `OUTINGS_MIN_EVENTS` checked events fails
 the run and posts nothing.

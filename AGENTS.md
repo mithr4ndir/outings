@@ -39,6 +39,14 @@ uv run pytest -q -rs
   and the last as endDate, so a day inside that span is not a different date (a replay
   of the 2026-10-18 digest caught that false drop). Replay a real digest with
   `--from-json` after changing match rules.
+- Collector sources lie in specific ways, each pinned by a test: Eventbrite listings give
+  dates without times and fake geo (an Ontario event had SF coordinates; trust
+  addressRegion, and addressCountry "CA" there means Canada); Eventbrite series
+  occurrences carry the series' url in their JSON-LD; Berkeley's feed needs an explicit
+  start_date/end_date or its first page can be months old, and its is_online flag was
+  empty for Zoom events; Chabot repeats every event in two ld+json blocks.
+- `--from-json` re-runs collection live: ids are a hash of url and day, so picks map
+  again as long as the events are still listed.
 - `claude -p` needs `--allowedTools` for WebSearch and WebFetch, or every call is
   silently denied and the model answers from memory.
 - Exploratorium 403s curl's default User-Agent; SFJAZZ and JCCCNC block all

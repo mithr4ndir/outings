@@ -234,13 +234,14 @@ def test_digest_drops_bad_items_and_counts_why() -> None:
     assert digest.drop_reasons == {"start is outside the window": 1}
 
 
-def test_digest_dedupes_and_caps_sections() -> None:
+def test_digest_dedupes_and_caps_researched_items() -> None:
     items = [numbered(n)[0] for n in range(1, 9)]
     dup = dict(items[0])
-    digest = checks.build_digest(raw_digest(science_tech=[*items[:7], dup]), WINDOW, set(),
+    digest = checks.build_digest(raw_digest(science_tech=[items[0], dup, *items[1:7]]), WINDOW, set(),
                                  fetcher_for(pages_for(*items)))
-    assert len(digest.sections["science_tech"]) == checks.SECTION_MAX
-    assert digest.drop_reasons == {"section is full": 1, "duplicate within this run": 1}
+    # Researched items only fill gaps the collection leaves: at most three.
+    assert len(digest.sections["science_tech"]) == research.RESEARCHED_PER_SECTION
+    assert digest.drop_reasons == {"duplicate within this run": 1, "too many researched items in the section": 4}
 
 
 def test_top_picks_keep_model_choices_that_survived_and_fill_the_rest() -> None:
